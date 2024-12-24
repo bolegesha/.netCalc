@@ -1,0 +1,362 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+
+<PageTitle>Calculator</PageTitle>
+
+<div class="main-container" tabindex="0" @onkeydown="HandleKeyDown">
+    <div class="calculator-container">
+        <div class="display">
+            <div class="previous-operand">@previousOperand @operatorSymbol</div>
+            <div class="current-operand" role="status">@(string.IsNullOrEmpty(currentInput) ? "0" : currentInput)</div>
+        </div>
+        
+        <div class="buttons-grid">
+            <button class="function-btn" @onclick="Clear">AC</button>
+            <button class="function-btn" @onclick="ToggleSign">±</button>
+            <button class="function-btn" @onclick="HandlePercent">%</button>
+            <button class="operator-btn @(currentOperator == "/" ? "active" : "")" @onclick='() => SetOperation("/")'>÷</button>
+            
+            <button class="number-btn" @onclick='() => AppendNumber("7")'>7</button>
+            <button class="number-btn" @onclick='() => AppendNumber("8")'>8</button>
+            <button class="number-btn" @onclick='() => AppendNumber("9")'>9</button>
+            <button class="operator-btn @(currentOperator == "*" ? "active" : "")" @onclick='() => SetOperation("*")'>×</button>
+            
+            <button class="number-btn" @onclick='() => AppendNumber("4")'>4</button>
+            <button class="number-btn" @onclick='() => AppendNumber("5")'>5</button>
+            <button class="number-btn" @onclick='() => AppendNumber("6")'>6</button>
+            <button class="operator-btn @(currentOperator == "-" ? "active" : "")" @onclick='() => SetOperation("-")'>−</button>
+            
+            <button class="number-btn" @onclick='() => AppendNumber("1")'>1</button>
+            <button class="number-btn" @onclick='() => AppendNumber("2")'>2</button>
+            <button class="number-btn" @onclick='() => AppendNumber("3")'>3</button>
+            <button class="operator-btn @(currentOperator == "+" ? "active" : "")" @onclick='() => SetOperation("+")'>+</button>
+            
+            <button class="number-btn span-two" @onclick='() => AppendNumber("0")'>0</button>
+            <button class="number-btn" @onclick="AppendDecimal">.</button>
+            <button class="operator-btn" @onclick="Calculate">=</button>
+        </div>
+    </div>
+</div>
+
+<style>
+   .main-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #f5f5f5;
+        margin: 0;
+        padding: 20px;
+        outline: none; 
+    }
+
+    .calculator-container {
+        width: 100%;
+        max-width: 400px;
+        background-color: #1C1C1C;
+        border-radius: 40px;
+        padding: 20px;
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .display {
+        padding: 20px;
+        margin-bottom: 20px;
+        text-align: right;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        word-wrap: break-word;
+        word-break: break-all;
+    }
+
+    .previous-operand {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 1.5rem;
+        min-height: 1.5rem;
+        margin-bottom: 5px;
+    }
+
+    .current-operand {
+        color: white;
+        font-size: 4rem;
+        font-weight: 300;
+        line-height: 1;
+        margin-top: 10px;
+    }
+
+    .buttons-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        padding: 10px;
+    }
+
+    button {
+        font-size: 2rem;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 400;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    button:active {
+        transform: scale(0.95);
+    }
+
+    .number-btn {
+        background-color: #333333;
+        color: white;
+    }
+
+    .number-btn:hover {
+        background-color: #404040;
+    }
+
+    .operator-btn {
+        background-color: #FF9F0A;
+        color: white;
+        font-size: 2.5rem;
+    }
+
+    .operator-btn:hover {
+        background-color: #FFB23F;
+    }
+
+    .operator-btn.active {
+        background-color: white;
+        color: #FF9F0A;
+    }
+
+    .function-btn {
+        background-color: #A5A5A5;
+        color: black;
+    }
+
+    .function-btn:hover {
+        background-color: #D4D4D2;
+    }
+
+    .span-two {
+        grid-column: span 2;
+        width: auto;
+        border-radius: 40px;
+        padding-left: 30px;
+        justify-content: flex-start;
+    }
+
+    @@media (max-width: 500px) {
+        .calculator-container {
+            padding: 15px;
+        }
+
+        button {
+            width: 65px;
+            height: 65px;
+            font-size: 1.75rem;
+        }
+
+        .current-operand {
+            font-size: 3rem;
+        }
+
+        .operator-btn {
+            font-size: 2rem;
+        }
+    }
+</style>
+
+@code {
+    private string currentInput = "";
+    private string previousOperand = "";
+    private string currentOperator = "";
+    private bool shouldResetInput = false;
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+
+            await Task.Delay(100); 
+            await JS.InvokeVoidAsync("eval", "document.querySelector('.main-container').focus()");
+        }
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "0":
+            case "1":
+            case "2":
+            case "3":
+            case "4":
+            case "5":
+            case "6":
+            case "7":
+            case "8":
+            case "9":
+                AppendNumber(e.Key);
+                break;
+            
+            case ".":
+            case ",":
+                AppendDecimal();
+                break;
+            
+            case "+":
+                SetOperation("+");
+                break;
+            
+            case "-":
+                SetOperation("-");
+                break;
+            
+            case "*":
+            case "x":
+            case "X":
+                SetOperation("*");
+                break;
+            
+            case "/":
+                SetOperation("/");
+                break;
+            
+            case "Enter":
+            case "=":
+                Calculate();
+                break;
+            
+            case "Escape":
+            case "c":
+            case "C":
+                Clear();
+                break;
+            
+            case "%":
+                HandlePercent();
+                break;
+            
+            case "Backspace":
+                HandleBackspace();
+                break;
+        }
+    }
+
+    private void HandleBackspace()
+    {
+        if (!string.IsNullOrEmpty(currentInput))
+        {
+            currentInput = currentInput.Length > 1 
+                ? currentInput.Substring(0, currentInput.Length - 1) 
+                : "";
+        }
+    }
+
+    private string operatorSymbol => currentOperator switch
+    {
+        "/" => "÷",
+        "*" => "×",
+        "-" => "−",
+        "+" => "+",
+        _ => ""
+    };
+
+    private void AppendNumber(string number)
+    {
+        if (shouldResetInput)
+        {
+            currentInput = "";
+            shouldResetInput = false;
+        }
+        
+        if (number == "0" && currentInput == "0") return;
+        if (currentInput == "0") currentInput = "";
+        
+        currentInput += number;
+    }
+
+    private void AppendDecimal()
+    {
+        if (shouldResetInput)
+        {
+            currentInput = "0";
+            shouldResetInput = false;
+        }
+
+        if (currentInput.Contains(".")) return;
+        currentInput = currentInput == "" ? "0." : currentInput + ".";
+    }
+
+    private void Clear()
+    {
+        currentInput = "";
+        previousOperand = "";
+        currentOperator = "";
+        shouldResetInput = false;
+    }
+
+    private void ToggleSign()
+    {
+        if (string.IsNullOrEmpty(currentInput)) return;
+        
+        if (currentInput.StartsWith("-"))
+            currentInput = currentInput.Substring(1);
+        else
+            currentInput = "-" + currentInput;
+    }
+
+    private void HandlePercent()
+    {
+        if (string.IsNullOrEmpty(currentInput)) return;
+        
+        var number = double.Parse(currentInput);
+        currentInput = (number / 100).ToString();
+    }
+
+    private void SetOperation(string operation)
+    {
+        if (string.IsNullOrEmpty(currentInput) && string.IsNullOrEmpty(previousOperand))
+            return;
+
+        if (!string.IsNullOrEmpty(previousOperand) && !string.IsNullOrEmpty(currentInput))
+        {
+            Calculate();
+        }
+
+        currentOperator = operation;
+        previousOperand = currentInput;
+        shouldResetInput = true;
+    }
+
+    private void Calculate()
+    {
+        if (string.IsNullOrEmpty(previousOperand) || string.IsNullOrEmpty(currentInput) || string.IsNullOrEmpty(currentOperator))
+            return;
+
+        double first = double.Parse(previousOperand);
+        double second = double.Parse(currentInput);
+        double result = currentOperator switch
+        {
+            "+" => first + second,
+            "-" => first - second,
+            "*" => first * second,
+            "/" => second == 0 ? 0 : first / second,
+            _ => 0
+        };
+
+        currentInput = result.ToString();
+        previousOperand = "";
+        currentOperator = "";
+        shouldResetInput = true;
+    }
+}

@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="../build/dotnet_calc.props" />
+</Project>
